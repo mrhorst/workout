@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-test/
+coverage/
+.env
+.env.local
+.DS_Store
+*.log
+*.sqlite
+*.sqlite3
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+data/*.sqlite
+data/*.sqlite-*
