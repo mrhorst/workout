@@ -59,7 +59,41 @@ test("workout data can be stored in sqlite and read back for the dashboard", () 
   assert.equal(firstWrite.inserted, true);
   assert.equal(duplicateWrite.inserted, false);
   assert.equal(session?.exercises[0]?.sets.length, 1);
-  assert.deepEqual(summary.volume, { lb: 1080, kg: 0 });
+  assert.equal(summary.volume.lb, 1080);
+  assert.equal(Number(summary.volume.kg.toFixed(1)), 489.9);
   assert.equal(summary.sessions, 1);
   assert.equal(summary.sets, 1);
+});
+
+test("dashboard volume totals convert between lb and kg", () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), "training-log-")), "test.sqlite");
+  const db = openDatabase(dbPath);
+  initializeDatabase(db);
+
+  addExerciseDefinition(db, {
+    name: "Deadlift",
+    bodyAreas: ["back", "legs"],
+  });
+
+  startWorkoutSession(db, {
+    id: "session-kg",
+    performedAt: "2026-06-06",
+  });
+
+  addWorkoutSet(db, {
+    sessionId: "session-kg",
+    exerciseName: "Deadlift",
+    workoutSet: {
+      setNumber: 1,
+      reps: 10,
+      weight: 100,
+      unit: "kg",
+      sourceEntryId: "hermes-entry-kg",
+    },
+  });
+
+  const summary = getDashboardSummary(db);
+
+  assert.equal(summary.volume.kg, 1000);
+  assert.equal(Number(summary.volume.lb.toFixed(1)), 2204.6);
 });

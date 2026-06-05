@@ -81,13 +81,22 @@ function App() {
 }
 
 function Dashboard({ summary }: { summary: DashboardSummary }) {
+  const [displayUnit, setDisplayUnit] = useState<Unit>('lb')
+  const exerciseVolume = useMemo(
+    () => aggregateVolume(summary.exerciseVolume, 'exercise_name', displayUnit),
+    [displayUnit, summary.exerciseVolume],
+  )
+  const dailyVolume = useMemo(
+    () => aggregateVolume(summary.dailyVolume, 'performed_at', displayUnit),
+    [displayUnit, summary.dailyVolume],
+  )
   const maxExerciseVolume = useMemo(
-    () => Math.max(1, ...summary.exerciseVolume.map((row) => row.volume)),
-    [summary.exerciseVolume],
+    () => Math.max(1, ...exerciseVolume.map((row) => row.volume)),
+    [exerciseVolume],
   )
   const maxDailyVolume = useMemo(
-    () => Math.max(1, ...summary.dailyVolume.map((row) => row.volume)),
-    [summary.dailyVolume],
+    () => Math.max(1, ...dailyVolume.map((row) => row.volume)),
+    [dailyVolume],
   )
 
   return (
@@ -95,37 +104,42 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
       <section className="metrics" aria-label="Workout metrics">
         <Metric label="Sessions" value={summary.sessions} />
         <Metric label="Sets" value={summary.sets} />
-        <Metric label="Volume lb" value={formatNumber(summary.volume.lb)} />
-        <Metric label="Volume kg" value={formatNumber(summary.volume.kg)} />
+        <Metric
+          label={`Volume ${displayUnit}`}
+          value={formatNumber(summary.volume[displayUnit])}
+        />
+        <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
       </section>
 
       <section className="dashboard-grid">
         <Panel title="Volume by Exercise">
-          {summary.exerciseVolume.length === 0 ? (
+          {exerciseVolume.length === 0 ? (
             <EmptyState />
           ) : (
-            summary.exerciseVolume.map((row) => (
+            exerciseVolume.map((row) => (
               <BarRow
-                key={`${row.exercise_name}-${row.unit}`}
-                label={`${row.exercise_name} (${row.unit})`}
+                key={row.label}
+                label={row.label}
                 value={row.volume}
                 maxValue={maxExerciseVolume}
+                unit={displayUnit}
               />
             ))
           )}
         </Panel>
 
         <Panel title="Daily Volume">
-          {summary.dailyVolume.length === 0 ? (
+          {dailyVolume.length === 0 ? (
             <EmptyState />
           ) : (
-            summary.dailyVolume.map((row) => (
+            dailyVolume.map((row) => (
               <BarRow
-                key={`${row.performed_at}-${row.unit}`}
-                label={`${row.performed_at} (${row.unit})`}
+                key={row.label}
+                label={row.label}
                 value={row.volume}
                 maxValue={maxDailyVolume}
                 tone="warm"
+                unit={displayUnit}
               />
             ))
           )}
@@ -167,6 +181,33 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+function UnitSwitcher({
+  unit,
+  onChange,
+}: {
+  unit: Unit
+  onChange: (unit: Unit) => void
+}) {
+  return (
+    <article className="metric unit-switcher" aria-label="Volume unit">
+      <span>Display</span>
+      <div className="unit-toggle" role="group" aria-label="Volume unit">
+        {(['lb', 'kg'] as const).map((candidate) => (
+          <button
+            key={candidate}
+            type="button"
+            className={candidate === unit ? 'active' : ''}
+            aria-pressed={candidate === unit}
+            onClick={() => onChange(candidate)}
+          >
+            {candidate}
+          </button>
+        ))}
+      </div>
+    </article>
+  )
+}
+
 function Panel({
   title,
   children,
@@ -188,11 +229,13 @@ function BarRow({
   label,
   value,
   maxValue,
+  unit,
   tone = 'cool',
 }: {
   label: string
   value: number
   maxValue: number
+  unit: Unit
   tone?: 'cool' | 'warm'
 }) {
   const width = Math.max(3, Math.round((value / maxValue) * 100))
@@ -206,7 +249,9 @@ function BarRow({
           style={{ width: `${width}%` }}
         />
       </div>
-      <strong>{formatNumber(value)}</strong>
+      <strong>
+        {formatNumber(value)} {unit}
+      </strong>
     </div>
   )
 }
@@ -250,6 +295,31 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 1,
   }).format(value)
+}
+
+function aggregateVolume<T extends 'exercise_name' | 'performed_at'>(
+  rows: Array<Record<T, string> & { unit: Unit; volume: number }>,
+  labelKey: T,
+  displayUnit: Unit,
+): Array<{ label: string; volume: number }> {
+  const totals = new Map<string, number>()
+
+  for (const row of rows) {
+    const label = row[labelKey]
+    totals.set(
+      label,
+      (totals.get(label) ?? 0) + convertVolume(row.volume, row.unit, displayUnit),
+    )
+  }
+
+  return [...totals.entries()]
+    .map(([label, volume]) => ({ label, volume }))
+    .sort((a, b) => b.volume - a.volume)
+}
+
+function convertVolume(value: number, from: Unit, to: Unit): number {
+  if (from === to) return value
+  return from === 'lb' ? value * 0.45359237 : value / 0.45359237
 }
 
 createRoot(document.getElementById('root') as HTMLElement).render(

@@ -393,11 +393,17 @@ function setFromRow(row: SetRow): WorkoutSet {
 function summarizeVolume(rows: ExerciseVolumeRow[]): VolumeByUnit {
   return rows.reduce(
     (volume, row) => {
-      volume[row.unit] += row.volume
+      volume.lb += convertVolume(row.volume, row.unit, 'lb')
+      volume.kg += convertVolume(row.volume, row.unit, 'kg')
       return volume
     },
     { lb: 0, kg: 0 },
   )
+}
+
+function convertVolume(value: number, from: Unit, to: Unit): number {
+  if (from === to) return value
+  return from === 'lb' ? value * 0.45359237 : value / 0.45359237
 }
 
 function parseBodyAreas(value: string): BodyArea[] {
