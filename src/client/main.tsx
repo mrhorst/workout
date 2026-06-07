@@ -9,8 +9,18 @@ type VolumeByUnit = Record<Unit, number>
 
 type ExerciseVolume = {
   exercise_name: string
+  family: string
+  movement_pattern: string | null
   unit: Unit
   volume: number
+  sets: number
+}
+
+type SetVolume = {
+  exercise_name?: string
+  family: string
+  movement_pattern: string | null
+  body_area: string
   sets: number
 }
 
@@ -35,6 +45,8 @@ type DashboardSummary = {
   sets: number
   volume: VolumeByUnit
   exerciseVolume: ExerciseVolume[]
+  familySetVolume: SetVolume[]
+  exerciseSetVolume: SetVolume[]
   dailyVolume: DailyVolume[]
   recentSets: RecentSet[]
 }
@@ -98,21 +110,64 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
     () => Math.max(1, ...dailyVolume.map((row) => row.volume)),
     [dailyVolume],
   )
+  const familySetVolume = useMemo(
+    () => summary.familySetVolume.map((row) => ({ label: `${row.body_area} / ${row.family}`, sets: row.sets, detail: row.movement_pattern ?? 'movement family' })),
+    [summary.familySetVolume],
+  )
+  const exerciseSetVolume = useMemo(
+    () => summary.exerciseSetVolume.map((row) => ({ label: row.exercise_name ?? row.family, sets: row.sets, detail: row.family })),
+    [summary.exerciseSetVolume],
+  )
+  const maxFamilySets = useMemo(() => Math.max(1, ...familySetVolume.map((row) => row.sets)), [familySetVolume])
+  const maxExerciseSets = useMemo(() => Math.max(1, ...exerciseSetVolume.map((row) => row.sets)), [exerciseSetVolume])
 
   return (
     <Shell>
       <section className="metrics" aria-label="Workout metrics">
         <Metric label="Sessions" value={summary.sessions} />
-        <Metric label="Sets" value={summary.sets} />
+        <Metric label="Hard Sets" value={summary.sets} />
         <Metric
-          label={`Volume ${displayUnit}`}
+          label={`Raw Load Volume ${displayUnit}`}
           value={formatNumber(summary.volume[displayUnit])}
         />
         <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
       </section>
 
       <section className="dashboard-grid">
-        <Panel title="Volume by Exercise">
+        <Panel title="Hard Sets by Muscle / Family" note="Primary volume view. Variants combine here because sets near effort transfer better than fake work math.">
+          {familySetVolume.length === 0 ? (
+            <EmptyState />
+          ) : (
+            familySetVolume.map((row) => (
+              <SetBarRow
+                key={`${row.label}-${row.detail}`}
+                label={row.label}
+                detail={row.detail}
+                sets={row.sets}
+                maxSets={maxFamilySets}
+              />
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Hard Sets by Exact Exercise" note="Use this to see variant exposure without mixing strength progression.">
+          {exerciseSetVolume.length === 0 ? (
+            <EmptyState />
+          ) : (
+            exerciseSetVolume.map((row) => (
+              <SetBarRow
+                key={row.label}
+                label={row.label}
+                detail={row.detail}
+                sets={row.sets}
+                maxSets={maxExerciseSets}
+                tone="warm"
+              />
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Raw Load Volume by Exact Exercise" note="Tonnage is exact-exercise only; do not compare across machines.">
           {exerciseVolume.length === 0 ? (
             <EmptyState />
           ) : (
@@ -212,14 +267,17 @@ function Panel({
   title,
   children,
   wide = false,
+  note,
 }: {
   title: string
   children: ReactNode
   wide?: boolean
+  note?: string
 }) {
   return (
     <section className={wide ? 'panel panel-wide' : 'panel'}>
       <h2>{title}</h2>
+      {note ? <p className="panel-note">{note}</p> : null}
       {children}
     </section>
   )
@@ -252,6 +310,35 @@ function BarRow({
       <strong>
         {formatNumber(value)} {unit}
       </strong>
+    </div>
+  )
+}
+
+function SetBarRow({
+  label,
+  detail,
+  sets,
+  maxSets,
+  tone = 'cool',
+}: {
+  label: string
+  detail: string
+  sets: number
+  maxSets: number
+  tone?: 'cool' | 'warm'
+}) {
+  const width = Math.max(3, Math.round((sets / maxSets) * 100))
+
+  return (
+    <div className="bar-row">
+      <span><strong>{label}</strong><small>{detail}</small></span>
+      <div className="bar-track">
+        <div
+          className={tone === 'warm' ? 'bar bar-warm' : 'bar'}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <strong>{sets} sets</strong>
     </div>
   )
 }

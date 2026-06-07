@@ -22,6 +22,8 @@ type ExerciseRow = {
   id: string
   name: string
   body_areas: string
+  family: string | null
+  movement_pattern: string | null
 }
 
 type SessionRow = {
@@ -36,6 +38,8 @@ type SetRow = {
   exercise_id: string
   exercise_name: string
   body_areas: string
+  family: string | null
+  movement_pattern: string | null
   set_number: number
   reps: number
   weight: number
@@ -47,8 +51,18 @@ type SetRow = {
 
 type ExerciseVolumeRow = {
   exercise_name: string
+  family: string
+  movement_pattern: string | null
   unit: Unit
   volume: number
+  sets: number
+}
+
+type SetVolumeRow = {
+  exercise_name?: string
+  family: string
+  movement_pattern: string | null
+  body_area: BodyArea
   sets: number
 }
 
@@ -65,6 +79,8 @@ export type DashboardSummary = {
   sets: number
   volume: VolumeByUnit
   exerciseVolume: ExerciseVolumeRow[]
+  familySetVolume: SetVolumeRow[]
+  exerciseSetVolume: SetVolumeRow[]
   dailyVolume: DayVolumeRow[]
   recentSets: SetRow[]
 }
@@ -83,6 +99,8 @@ export function initializeDatabase(db: TrainingLogDatabase): void {
       name TEXT NOT NULL,
       normalized_name TEXT NOT NULL UNIQUE,
       body_areas TEXT NOT NULL,
+      family TEXT,
+      movement_pattern TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -117,16 +135,23 @@ export function initializeDatabase(db: TrainingLogDatabase): void {
       ON workout_sets(session_id, exercise_id, source_entry_id)
       WHERE source_entry_id IS NOT NULL;
   `)
+
+  addColumnIfMissing(db, 'exercise_definitions', 'family', 'TEXT')
+  addColumnIfMissing(db, 'exercise_definitions', 'movement_pattern', 'TEXT')
 }
 
 export function addExerciseDefinition(
   db: TrainingLogDatabase,
-  input: { id?: string; name: string; bodyAreas: BodyArea[] },
+  input: { id?: string; name: string; bodyAreas: BodyArea[]; family?: string; movementPattern?: string },
 ): ExerciseDefinition {
+  const name = input.name.trim()
+  const movementPattern = normalizeOptionalLabel(input.movementPattern)
   const exercise: ExerciseDefinition = {
     id: input.id ?? makeId(input.name),
-    name: input.name.trim(),
+    name,
     bodyAreas: input.bodyAreas,
+    family: normalizeOptionalLabel(input.family) ?? name,
+    ...(movementPattern === undefined ? {} : { movementPattern }),
   }
 
   if (!exercise.name) {
@@ -135,16 +160,20 @@ export function addExerciseDefinition(
 
   const normalizedName = normalizeName(exercise.name)
   db.prepare(`
-    INSERT INTO exercise_definitions (id, name, normalized_name, body_areas)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO exercise_definitions (id, name, normalized_name, body_areas, family, movement_pattern)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(normalized_name) DO UPDATE SET
       name = excluded.name,
-      body_areas = excluded.body_areas
+      body_areas = excluded.body_areas,
+      family = excluded.family,
+      movement_pattern = excluded.movement_pattern
   `).run(
     exercise.id,
     exercise.name,
     normalizedName,
     JSON.stringify(exercise.bodyAreas),
+    exercise.family ?? name,
+    exercise.movementPattern ?? null,
   )
 
   return findExerciseByName(db, exercise.name) ?? exercise
@@ -176,7 +205,7 @@ export function findExerciseByName(
   name: string,
 ): ExerciseDefinition | undefined {
   const row = db
-    .prepare('SELECT id, name, body_areas FROM exercise_definitions WHERE normalized_name = ?')
+    .prepare('SELECT id, name, body_areas, family, movement_pattern FROM exercise_definitions WHERE normalized_name = ?')
     .get(normalizeName(name)) as ExerciseRow | undefined
 
   if (!row) return undefined
@@ -186,7 +215,7 @@ export function findExerciseByName(
 
 export function listExercises(db: TrainingLogDatabase): ExerciseDefinition[] {
   const rows = db
-    .prepare('SELECT id, name, body_areas FROM exercise_definitions ORDER BY name')
+    .prepare('SELECT id, name, body_areas, family, movement_pattern FROM exercise_definitions ORDER BY name')
     .all() as ExerciseRow[]
 
   return rows.map(exerciseFromRow)
@@ -273,6 +302,8 @@ export function loadWorkoutSession(
         e.id AS exercise_id,
         e.name AS exercise_name,
         e.body_areas,
+        COALESCE(e.family, e.name) AS family,
+        e.movement_pattern,
         ws.set_number,
         ws.reps,
         ws.weight,
@@ -293,6 +324,8 @@ export function loadWorkoutSession(
       id: row.exercise_id,
       name: row.exercise_name,
       bodyAreas: parseBodyAreas(row.body_areas),
+      family: row.family ?? row.exercise_name,
+      ...(row.movement_pattern === null ? {} : { movementPattern: row.movement_pattern }),
     }
 
     return addSetToSession(currentSession, exercise, setFromRow(row))
@@ -312,15 +345,52 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
     .prepare(`
       SELECT
         e.name AS exercise_name,
+        COALESCE(e.family, e.name) AS family,
+        e.movement_pattern,
         ws.unit,
         SUM(ws.reps * ws.weight) AS volume,
         COUNT(*) AS sets
       FROM workout_sets ws
       JOIN exercise_definitions e ON e.id = ws.exercise_id
-      GROUP BY e.name, ws.unit
+      GROUP BY e.name, COALESCE(e.family, e.name), e.movement_pattern, ws.unit
       ORDER BY volume DESC
     `)
     .all() as ExerciseVolumeRow[]
+
+
+
+  const familySetVolume = db
+    .prepare(`
+      SELECT
+        COALESCE(e.family, e.name) AS family,
+        e.movement_pattern,
+        json_each.value AS body_area,
+        COUNT(*) AS sets
+      FROM workout_sets ws
+      JOIN exercise_definitions e ON e.id = ws.exercise_id
+      JOIN json_each(e.body_areas)
+      GROUP BY COALESCE(e.family, e.name), e.movement_pattern, json_each.value
+      ORDER BY sets DESC, family
+    `)
+    .all()
+    .map(setVolumeFromRow)
+
+  const exerciseSetVolume = db
+    .prepare(`
+      SELECT
+        e.name AS exercise_name,
+        COALESCE(e.family, e.name) AS family,
+        e.movement_pattern,
+        json_each.value AS body_area,
+        COUNT(*) AS sets
+      FROM workout_sets ws
+      JOIN exercise_definitions e ON e.id = ws.exercise_id
+      JOIN json_each(e.body_areas)
+      GROUP BY e.name, COALESCE(e.family, e.name), e.movement_pattern, json_each.value
+      ORDER BY e.name
+    `)
+    .all()
+    .map(setVolumeFromRow)
 
   const dailyVolume = db
     .prepare(`
@@ -343,6 +413,8 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
         e.id AS exercise_id,
         e.name AS exercise_name,
         e.body_areas,
+        COALESCE(e.family, e.name) AS family,
+        e.movement_pattern,
         ws.set_number,
         ws.reps,
         ws.weight,
@@ -363,6 +435,8 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
     sets: setCount.count,
     volume: summarizeVolume(exerciseVolume),
     exerciseVolume,
+    familySetVolume,
+    exerciseSetVolume,
     dailyVolume,
     recentSets,
   }
@@ -373,6 +447,19 @@ function exerciseFromRow(row: ExerciseRow): ExerciseDefinition {
     id: row.id,
     name: row.name,
     bodyAreas: parseBodyAreas(row.body_areas),
+    family: row.family ?? row.name,
+    ...(row.movement_pattern === null ? {} : { movementPattern: row.movement_pattern }),
+  }
+}
+
+function setVolumeFromRow(row: unknown): SetVolumeRow {
+  const value = row as SetVolumeRow
+  return {
+    ...(value.exercise_name === undefined ? {} : { exercise_name: value.exercise_name }),
+    family: value.family,
+    movement_pattern: value.movement_pattern,
+    body_area: value.body_area,
+    sets: value.sets,
   }
 }
 
@@ -388,6 +475,23 @@ function setFromRow(row: SetRow): WorkoutSet {
       ? {}
       : { sourceEntryId: row.source_entry_id }),
   }
+}
+
+function addColumnIfMissing(
+  db: TrainingLogDatabase,
+  table: string,
+  column: string,
+  definition: string,
+): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (!columns.some((row) => row.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  }
+}
+
+function normalizeOptionalLabel(value: string | undefined): string | undefined {
+  const normalized = value?.trim()
+  return normalized ? normalized : undefined
 }
 
 function summarizeVolume(rows: ExerciseVolumeRow[]): VolumeByUnit {

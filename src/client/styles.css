@@ -53,6 +53,13 @@ h2 {
   font-size: 18px;
 }
 
+.panel-note {
+  margin: -6px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .app-header p,
 .app-header span,
 .metric span,
@@ -127,6 +134,18 @@ h2 {
   align-items: center;
   min-height: 34px;
   font-size: 14px;
+}
+
+.bar-row span strong,
+.bar-row span small {
+  display: block;
+}
+
+.bar-row span small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .bar-track {

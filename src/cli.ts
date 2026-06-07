@@ -49,10 +49,14 @@ function runCommand(
 
     if (commandName === 'add-exercise') {
       const optionalId = optionalString(flags, 'id')
+      const optionalFamily = optionalString(flags, 'family')
+      const optionalMovement = optionalString(flags, 'movement')
       const exercise = addExerciseDefinition(db, {
         ...(optionalId === undefined ? {} : { id: optionalId }),
         name: requiredString(flags, 'name'),
         bodyAreas: parseBodyAreaList(requiredString(flags, 'areas')),
+        ...(optionalFamily === undefined ? {} : { family: optionalFamily }),
+        ...(optionalMovement === undefined ? {} : { movementPattern: optionalMovement }),
       })
 
       return { ok: true, exercise }
@@ -242,7 +246,7 @@ Workout CLI
 
 Commands:
   init
-  add-exercise --name "Bench Press" --areas chest,shoulders,arms
+  add-exercise --name "Bench Press" --areas chest,shoulders,arms [--family "Barbell Bench Press"] [--movement "Horizontal Press"]
   list-exercises
   start-session --id today --date 2026-06-05
   add-set --session today --exercise "Bench Press" --set 1 --reps 8 --weight 135 --unit lb

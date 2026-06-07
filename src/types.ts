@@ -6,6 +6,8 @@ export type ExerciseDefinition = {
   id: string
   name: string
   bodyAreas: BodyArea[]
+  family?: string
+  movementPattern?: string
 }
 
 export type WorkoutSet = {

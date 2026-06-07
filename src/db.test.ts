@@ -97,3 +97,58 @@ test("dashboard volume totals convert between lb and kg", () => {
   assert.equal(summary.volume.kg, 1000);
   assert.equal(Number(summary.volume.lb.toFixed(1)), 2204.6);
 });
+
+test("dashboard groups variants by family for hard-set volume while keeping exact load volume separate", () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), "training-log-")), "test.sqlite");
+  const db = openDatabase(dbPath);
+  initializeDatabase(db);
+
+  addExerciseDefinition(db, {
+    name: "Seated Leg Curl",
+    bodyAreas: ["legs"],
+    family: "Leg Curl",
+    movementPattern: "Knee Flexion",
+  });
+  addExerciseDefinition(db, {
+    name: "Seated Leg Curl - ROC-IT",
+    bodyAreas: ["legs"],
+    family: "Leg Curl",
+    movementPattern: "Knee Flexion",
+  });
+
+  startWorkoutSession(db, {
+    id: "session-leg-curl",
+    performedAt: "2026-06-07",
+  });
+
+  for (const [exerciseName, weight] of [["Seated Leg Curl", 140], ["Seated Leg Curl - ROC-IT", 160]] as const) {
+    for (const setNumber of [1, 2, 3]) {
+      addWorkoutSet(db, {
+        sessionId: "session-leg-curl",
+        exerciseName,
+        workoutSet: {
+          setNumber,
+          reps: 10,
+          weight,
+          unit: "lb",
+          sourceEntryId: `${exerciseName}-${setNumber}`,
+        },
+      });
+    }
+  }
+
+  const summary = getDashboardSummary(db);
+
+  assert.deepEqual(summary.familySetVolume, [
+    { family: "Leg Curl", movement_pattern: "Knee Flexion", body_area: "legs", sets: 6 },
+  ]);
+  assert.deepEqual(summary.exerciseSetVolume, [
+    { exercise_name: "Seated Leg Curl", family: "Leg Curl", movement_pattern: "Knee Flexion", body_area: "legs", sets: 3 },
+    { exercise_name: "Seated Leg Curl - ROC-IT", family: "Leg Curl", movement_pattern: "Knee Flexion", body_area: "legs", sets: 3 },
+  ]);
+  assert.equal(summary.exerciseVolume.length, 2);
+  assert.equal(summary.exerciseVolume[0]?.exercise_name, "Seated Leg Curl - ROC-IT");
+  assert.equal(summary.exerciseVolume[0]?.volume, 4800);
+  assert.equal(summary.exerciseVolume[1]?.exercise_name, "Seated Leg Curl");
+  assert.equal(summary.exerciseVolume[1]?.volume, 4200);
+});
