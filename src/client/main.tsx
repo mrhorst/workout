@@ -96,6 +96,10 @@ function App() {
 
 type DashboardSection = 'family' | 'exercises' | 'tonnage' | 'daily' | 'recent'
 type SortOrder = 'highest' | 'lowest'
+type DetailView =
+  | { type: 'muscle'; label: string }
+  | { type: 'exercise'; label: string }
+  | { type: 'day'; label: string }
 
 const dashboardSections: Array<{ id: DashboardSection; label: string }> = [
   { id: 'family', label: 'Muscles' },
@@ -109,6 +113,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
   const [displayUnit, setDisplayUnit] = useState<Unit>('lb')
   const [activeSection, setActiveSection] = useState<DashboardSection>('family')
   const [sortOrder, setSortOrder] = useState<SortOrder>('highest')
+  const [detailView, setDetailView] = useState<DetailView | null>(null)
   const exerciseVolume = useMemo(
     () => sortByValue(aggregateVolume(summary.exerciseVolume, 'exercise_name', displayUnit), 'volume', sortOrder),
     [displayUnit, sortOrder, summary.exerciseVolume],
@@ -155,7 +160,10 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
             type="button"
             className={activeSection === section.id ? 'active' : ''}
             aria-current={activeSection === section.id ? 'page' : undefined}
-            onClick={() => setActiveSection(section.id)}
+            onClick={() => {
+              setActiveSection(section.id)
+              setDetailView(null)
+            }}
           >
             {section.label}
           </button>
@@ -164,6 +172,15 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
 
       <SortToolbar sortOrder={sortOrder} onChange={setSortOrder} />
 
+      {detailView ? (
+        <DetailPage
+          detailView={detailView}
+          summary={summary}
+          displayUnit={displayUnit}
+          onBack={() => setDetailView(null)}
+          onSelectExercise={(label) => setDetailView({ type: 'exercise', label })}
+        />
+      ) : (
       <section className="dashboard-grid">
         {activeSection === 'family' ? (
           <Panel title="Hard Sets by Muscle" note="Primary volume view. Exercises and variants roll up into the muscles they trained.">
@@ -176,6 +193,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
                   label={row.label}
                   sets={row.sets}
                   maxSets={maxMuscleSets}
+                  onSelect={() => setDetailView({ type: 'muscle', label: row.label })}
                 />
               ))
             )}
@@ -195,6 +213,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
                   sets={row.sets}
                   maxSets={maxExerciseSets}
                   tone="warm"
+                  onSelect={() => setDetailView({ type: 'exercise', label: row.label })}
                 />
               ))
             )}
@@ -213,6 +232,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
                   value={row.volume}
                   maxValue={maxExerciseVolume}
                   unit={displayUnit}
+                  onSelect={() => setDetailView({ type: 'exercise', label: row.label })}
                 />
               ))
             )}
@@ -231,6 +251,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
                   value={row.volume}
                   maxValue={maxDailyVolume}
                   unit={displayUnit}
+                  onSelect={() => setDetailView({ type: 'day', label: row.label })}
                 />
               ))
             )}
@@ -242,11 +263,12 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
             {summary.recentSets.length === 0 ? (
               <EmptyState />
             ) : (
-              <RecentSets sets={summary.recentSets} />
+              <RecentSets sets={summary.recentSets} onSelectDay={(label) => setDetailView({ type: 'day', label })} />
             )}
           </Panel>
         ) : null}
       </section>
+      )}
     </Shell>
   )
 }
@@ -316,6 +338,83 @@ function UnitSwitcher({
   )
 }
 
+function DetailPage({
+  detailView,
+  summary,
+  displayUnit,
+  onBack,
+  onSelectExercise,
+}: {
+  detailView: DetailView
+  summary: DashboardSummary
+  displayUnit: Unit
+  onBack: () => void
+  onSelectExercise: (label: string) => void
+}) {
+  if (detailView.type === 'muscle') {
+    const exerciseRows = aggregateExerciseSetRows(
+      summary.exerciseSetVolume.filter((row) => row.body_area === detailView.label),
+    ).sort((a, b) => b.sets - a.sets)
+    const totalSets = exerciseRows.reduce((total, row) => total + row.sets, 0)
+    const maxSets = Math.max(1, ...exerciseRows.map((row) => row.sets))
+
+    return (
+      <section className="detail-page">
+        <button className="back-button" type="button" onClick={onBack}>← Back</button>
+        <Panel title={`${detailView.label} details`} note={`${totalSets} hard sets contributing to ${detailView.label}.`}>
+          {exerciseRows.length === 0 ? <EmptyState /> : exerciseRows.map((row) => (
+            <SetBarRow
+              key={row.label}
+              label={row.label}
+              detail={row.detail}
+              sets={row.sets}
+              maxSets={maxSets}
+              onSelect={() => onSelectExercise(row.label)}
+            />
+          ))}
+        </Panel>
+      </section>
+    )
+  }
+
+  if (detailView.type === 'exercise') {
+    const setRows = summary.recentSets.filter((set) => set.exercise_name === detailView.label)
+    const volumeRows = aggregateVolume(
+      summary.exerciseVolume.filter((row) => row.exercise_name === detailView.label),
+      'exercise_name',
+      displayUnit,
+    )
+    const totalVolume = volumeRows[0]?.volume ?? 0
+
+    return (
+      <section className="detail-page">
+        <button className="back-button" type="button" onClick={onBack}>← Back</button>
+        <Panel title={`${detailView.label} details`} note={`${setRows.length} recent sets · ${formatNumber(totalVolume)} ${displayUnit} raw load volume.`}>
+          {setRows.length === 0 ? <EmptyState /> : (
+            <div className="recent-card-list">
+              {setRows.map((set, index) => <RecentSetCard key={`${set.performed_at}-${index}`} set={set} />)}
+            </div>
+          )}
+        </Panel>
+      </section>
+    )
+  }
+
+  const daySets = summary.recentSets.filter((set) => set.performed_at === detailView.label)
+  return (
+    <section className="detail-page">
+      <button className="back-button" type="button" onClick={onBack}>← Back</button>
+      <Panel title={`${formatShortDate(detailView.label)} details`} note={`${daySets.length} sets logged on ${detailView.label}.`}>
+        {daySets.length === 0 ? <EmptyState /> : (
+          <div className="recent-card-list">
+            {daySets.map((set, index) => <RecentSetCard key={`${set.exercise_name}-${index}`} set={set} />)}
+          </div>
+        )}
+      </Panel>
+    </section>
+  )
+}
+
 function Panel({
   title,
   children,
@@ -342,18 +441,20 @@ function BarRow({
   maxValue,
   unit,
   tone = 'cool',
+  onSelect,
 }: {
   label: string
   value: number
   maxValue: number
   unit: Unit
   tone?: 'cool' | 'warm'
+  onSelect?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const width = Math.max(3, Math.round((value / maxValue) * 100))
 
   return (
-    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => onSelect ? onSelect() : setExpanded(!expanded)}>
       <span>{label}</span>
       <div className="bar-track">
         <div
@@ -377,18 +478,20 @@ function SetBarRow({
   sets,
   maxSets,
   tone = 'cool',
+  onSelect,
 }: {
   label: string
   detail?: string | undefined
   sets: number
   maxSets: number
   tone?: 'cool' | 'warm'
+  onSelect?: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const width = Math.max(3, Math.round((sets / maxSets) * 100))
 
   return (
-    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => onSelect ? onSelect() : setExpanded(!expanded)}>
       <span><strong>{label}</strong>{detail ? <small>{detail}</small> : null}</span>
       <div className="bar-track">
         <div
@@ -409,18 +512,20 @@ function DailyVolumeRow({
   value,
   maxValue,
   unit,
+  onSelect,
 }: {
   date: string
   value: number
   maxValue: number
   unit: Unit
+  onSelect?: () => void
 }) {
   const width = Math.max(3, Math.round((value / maxValue) * 100))
 
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <button className="daily-volume-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+    <button className="daily-volume-row expandable-row" type="button" aria-expanded={expanded} onClick={() => onSelect ? onSelect() : setExpanded(!expanded)}>
       <span title={date}>{formatShortDate(date)}</span>
       <div className="bar-track">
         <div className="bar bar-warm" style={{ width: `${width}%` }} />
@@ -465,7 +570,7 @@ function SortToolbar({
   )
 }
 
-function RecentSets({ sets }: { sets: RecentSet[] }) {
+function RecentSets({ sets, onSelectDay }: { sets: RecentSet[]; onSelectDay?: (day: string) => void }) {
   const setsByDay = useMemo(() => groupRecentSetsByDay(sets), [sets])
   const [selectedDay, setSelectedDay] = useState(() => setsByDay[0]?.day ?? '')
   const activeDay = setsByDay.some((group) => group.day === selectedDay)
@@ -482,7 +587,7 @@ function RecentSets({ sets }: { sets: RecentSet[] }) {
             type="button"
             className={group.day === activeDay ? 'active' : ''}
             aria-pressed={group.day === activeDay}
-            onClick={() => setSelectedDay(group.day)}
+            onClick={() => onSelectDay ? onSelectDay(group.day) : setSelectedDay(group.day)}
           >
             <strong>{formatShortDate(group.day)}</strong>
             <span>{group.sets.length} sets</span>

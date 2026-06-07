@@ -226,6 +226,24 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.detail-page {
+  display: grid;
+  gap: 12px;
+}
+
+.back-button {
+  justify-self: start;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 8px 14px;
+}
+
 .bar-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
