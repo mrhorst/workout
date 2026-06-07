@@ -95,6 +95,7 @@ function App() {
 }
 
 type DashboardSection = 'family' | 'exercises' | 'tonnage' | 'daily' | 'recent'
+type SortOrder = 'highest' | 'lowest'
 
 const dashboardSections: Array<{ id: DashboardSection; label: string }> = [
   { id: 'family', label: 'Muscles' },
@@ -107,13 +108,14 @@ const dashboardSections: Array<{ id: DashboardSection; label: string }> = [
 function Dashboard({ summary }: { summary: DashboardSummary }) {
   const [displayUnit, setDisplayUnit] = useState<Unit>('lb')
   const [activeSection, setActiveSection] = useState<DashboardSection>('family')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('highest')
   const exerciseVolume = useMemo(
-    () => aggregateVolume(summary.exerciseVolume, 'exercise_name', displayUnit),
-    [displayUnit, summary.exerciseVolume],
+    () => sortByValue(aggregateVolume(summary.exerciseVolume, 'exercise_name', displayUnit), 'volume', sortOrder),
+    [displayUnit, sortOrder, summary.exerciseVolume],
   )
   const dailyVolume = useMemo(
-    () => aggregateVolume(summary.dailyVolume, 'performed_at', displayUnit),
-    [displayUnit, summary.dailyVolume],
+    () => sortByValue(aggregateVolume(summary.dailyVolume, 'performed_at', displayUnit), 'volume', sortOrder),
+    [displayUnit, sortOrder, summary.dailyVolume],
   )
   const maxExerciseVolume = useMemo(
     () => Math.max(1, ...exerciseVolume.map((row) => row.volume)),
@@ -123,15 +125,19 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
     () => Math.max(1, ...dailyVolume.map((row) => row.volume)),
     [dailyVolume],
   )
-  const familySetVolume = useMemo(
-    () => summary.familySetVolume.map((row) => ({ label: `${row.body_area} / ${row.family}`, sets: row.sets, detail: row.movement_pattern ?? 'movement family' })),
-    [summary.familySetVolume],
+  const muscleSetVolume = useMemo(
+    () => sortByValue(aggregateSets(summary.familySetVolume, 'body_area'), 'sets', sortOrder),
+    [sortOrder, summary.familySetVolume],
   )
   const exerciseSetVolume = useMemo(
-    () => summary.exerciseSetVolume.map((row) => ({ label: row.exercise_name ?? row.family, sets: row.sets, detail: row.family })),
-    [summary.exerciseSetVolume],
+    () => sortByValue(
+      summary.exerciseSetVolume.map((row) => ({ label: row.exercise_name ?? row.family, sets: row.sets, detail: row.family })),
+      'sets',
+      sortOrder,
+    ),
+    [sortOrder, summary.exerciseSetVolume],
   )
-  const maxFamilySets = useMemo(() => Math.max(1, ...familySetVolume.map((row) => row.sets)), [familySetVolume])
+  const maxMuscleSets = useMemo(() => Math.max(1, ...muscleSetVolume.map((row) => row.sets)), [muscleSetVolume])
   const maxExerciseSets = useMemo(() => Math.max(1, ...exerciseSetVolume.map((row) => row.sets)), [exerciseSetVolume])
 
   return (
@@ -160,19 +166,20 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ))}
       </nav>
 
+      <SortToolbar sortOrder={sortOrder} onChange={setSortOrder} />
+
       <section className="dashboard-grid">
         {activeSection === 'family' ? (
-          <Panel title="Hard Sets by Muscle / Family" note="Primary volume view. Variants combine here because sets near effort transfer better than fake work math.">
-            {familySetVolume.length === 0 ? (
+          <Panel title="Hard Sets by Muscle" note="Primary volume view. Exercises and variants roll up into the muscles they trained.">
+            {muscleSetVolume.length === 0 ? (
               <EmptyState />
             ) : (
-              familySetVolume.map((row) => (
+              muscleSetVolume.map((row) => (
                 <SetBarRow
-                  key={`${row.label}-${row.detail}`}
+                  key={row.label}
                   label={row.label}
-                  detail={row.detail}
                   sets={row.sets}
-                  maxSets={maxFamilySets}
+                  maxSets={maxMuscleSets}
                 />
               ))
             )}
@@ -222,12 +229,11 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
               <EmptyState />
             ) : (
               dailyVolume.map((row) => (
-                <BarRow
+                <DailyVolumeRow
                   key={row.label}
-                  label={row.label}
+                  date={row.label}
                   value={row.volume}
                   maxValue={maxDailyVolume}
-                  tone="warm"
                   unit={displayUnit}
                 />
               ))
@@ -373,7 +379,7 @@ function SetBarRow({
   tone = 'cool',
 }: {
   label: string
-  detail: string
+  detail?: string
   sets: number
   maxSets: number
   tone?: 'cool' | 'warm'
@@ -382,7 +388,7 @@ function SetBarRow({
 
   return (
     <div className="bar-row">
-      <span><strong>{label}</strong><small>{detail}</small></span>
+      <span><strong>{label}</strong>{detail ? <small>{detail}</small> : null}</span>
       <div className="bar-track">
         <div
           className={tone === 'warm' ? 'bar bar-warm' : 'bar'}
@@ -394,39 +400,126 @@ function SetBarRow({
   )
 }
 
-function RecentSets({ sets }: { sets: RecentSet[] }) {
+function DailyVolumeRow({
+  date,
+  value,
+  maxValue,
+  unit,
+}: {
+  date: string
+  value: number
+  maxValue: number
+  unit: Unit
+}) {
+  const width = Math.max(3, Math.round((value / maxValue) * 100))
+
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Exercise</th>
-            <th>Set</th>
-            <th>Work</th>
-            <th>RPE</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sets.map((set, index) => (
-            <tr key={`${set.performed_at}-${set.exercise_name}-${index}`}>
-              <td>{set.performed_at}</td>
-              <td>{set.exercise_name}</td>
-              <td>{set.set_number}</td>
-              <td>
-                {set.reps} x {formatNumber(set.weight)} {set.unit}
-              </td>
-              <td>{set.rpe ?? ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="daily-volume-row">
+      <span title={date}>{formatShortDate(date)}</span>
+      <div className="bar-track">
+        <div className="bar bar-warm" style={{ width: `${width}%` }} />
+      </div>
+      <strong>
+        {formatNumber(value)} {unit}
+      </strong>
+    </div>
+  )
+}
+
+function SortToolbar({
+  sortOrder,
+  onChange,
+}: {
+  sortOrder: SortOrder
+  onChange: (sortOrder: SortOrder) => void
+}) {
+  return (
+    <div className="sort-toolbar" aria-label="Sort chart data">
+      <span>Sort</span>
+      <div role="group" aria-label="Sort order">
+        <button
+          type="button"
+          className={sortOrder === 'highest' ? 'active' : ''}
+          aria-pressed={sortOrder === 'highest'}
+          onClick={() => onChange('highest')}
+        >
+          Highest
+        </button>
+        <button
+          type="button"
+          className={sortOrder === 'lowest' ? 'active' : ''}
+          aria-pressed={sortOrder === 'lowest'}
+          onClick={() => onChange('lowest')}
+        >
+          Lowest
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RecentSets({ sets }: { sets: RecentSet[] }) {
+  const setsByDay = useMemo(() => groupRecentSetsByDay(sets), [sets])
+  const [selectedDay, setSelectedDay] = useState(() => setsByDay[0]?.day ?? '')
+  const activeDay = setsByDay.some((group) => group.day === selectedDay)
+    ? selectedDay
+    : setsByDay[0]?.day ?? ''
+  const activeSets = setsByDay.find((group) => group.day === activeDay)?.sets ?? []
+
+  return (
+    <div className="recent-section">
+      <div className="day-tabs" aria-label="Recent workout days">
+        {setsByDay.map((group) => (
+          <button
+            key={group.day}
+            type="button"
+            className={group.day === activeDay ? 'active' : ''}
+            aria-pressed={group.day === activeDay}
+            onClick={() => setSelectedDay(group.day)}
+          >
+            <strong>{formatShortDate(group.day)}</strong>
+            <span>{group.sets.length} sets</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="recent-card-list">
+        {activeSets.map((set, index) => (
+          <article className="recent-card" key={`${set.performed_at}-${set.exercise_name}-${index}`}>
+            <div>
+              <strong>{set.exercise_name}</strong>
+              <span>Set {set.set_number}</span>
+            </div>
+            <div className="recent-work">
+              <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
+              {set.rpe === null ? null : <span>RPE {set.rpe}</span>}
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   )
 }
 
 function EmptyState() {
   return <p className="empty">No workout data logged yet.</p>
+}
+
+function groupRecentSetsByDay(sets: RecentSet[]): Array<{ day: string; sets: RecentSet[] }> {
+  const groups = new Map<string, RecentSet[]>()
+
+  for (const set of sets) {
+    const daySets = groups.get(set.performed_at) ?? []
+    daySets.push(set)
+    groups.set(set.performed_at, daySets)
+  }
+
+  return [...groups.entries()].map(([day, daySets]) => ({ day, sets: daySets }))
+}
+
+function formatShortDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  return match ? `${Number(match[2])}/${Number(match[3])}` : value
 }
 
 function formatNumber(value: number): string {
@@ -452,7 +545,28 @@ function aggregateVolume<T extends 'exercise_name' | 'performed_at'>(
 
   return [...totals.entries()]
     .map(([label, volume]) => ({ label, volume }))
-    .sort((a, b) => b.volume - a.volume)
+}
+
+function aggregateSets<T extends 'body_area'>(
+  rows: Array<Record<T, string> & { sets: number }>,
+  labelKey: T,
+): Array<{ label: string; sets: number }> {
+  const totals = new Map<string, number>()
+
+  for (const row of rows) {
+    const label = row[labelKey]
+    totals.set(label, (totals.get(label) ?? 0) + row.sets)
+  }
+
+  return [...totals.entries()].map(([label, sets]) => ({ label, sets }))
+}
+
+function sortByValue<T, K extends keyof T>(rows: T[], key: K, order: SortOrder): T[] {
+  return [...rows].sort((a, b) => {
+    const left = Number(a[key])
+    const right = Number(b[key])
+    return order === 'highest' ? right - left : left - right
+  })
 }
 
 function convertVolume(value: number, from: Unit, to: Unit): number {

@@ -145,6 +145,41 @@ h2 {
   color: white;
 }
 
+.sort-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sort-toolbar > div {
+  display: flex;
+  gap: 8px;
+}
+
+.sort-toolbar button,
+.day-tabs button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.sort-toolbar button.active,
+.day-tabs button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
 .metric,
 .panel {
   min-width: 0;
@@ -236,6 +271,90 @@ h2 {
   background: var(--accent-warm);
 }
 
+.daily-volume-row {
+  display: grid;
+  grid-template-columns: minmax(72px, max-content) minmax(80px, 1fr) minmax(82px, max-content);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.daily-volume-row > span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.daily-volume-row > strong {
+  text-align: right;
+}
+
+.recent-section {
+  display: grid;
+  gap: 14px;
+}
+
+.day-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.day-tabs button {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 2px;
+  min-width: 72px;
+  text-align: center;
+}
+
+.day-tabs button span {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.recent-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.recent-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f7fafb;
+  padding: 12px;
+}
+
+.recent-card strong,
+.recent-card span {
+  display: block;
+}
+
+.recent-card span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.recent-work {
+  justify-self: start;
+}
+
 .table-wrap {
   width: 100%;
   max-width: 100%;
@@ -278,6 +397,16 @@ th {
     grid-template-columns: minmax(0, 1fr) minmax(90px, 2fr) minmax(70px, max-content);
     gap: 10px;
     padding: 0;
+  }
+
+  .recent-card {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+  }
+
+  .recent-work {
+    justify-self: end;
+    text-align: right;
   }
 }
 
