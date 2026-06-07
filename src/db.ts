@@ -426,7 +426,7 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
       JOIN workout_sessions s ON s.id = ws.session_id
       JOIN exercise_definitions e ON e.id = ws.exercise_id
       ORDER BY s.performed_at DESC, ws.created_at DESC
-      LIMIT 20
+      LIMIT 200
     `)
     .all() as SetRow[]
 

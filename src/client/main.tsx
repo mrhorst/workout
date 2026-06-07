@@ -130,11 +130,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
     [sortOrder, summary.familySetVolume],
   )
   const exerciseSetVolume = useMemo(
-    () => sortByValue(
-      summary.exerciseSetVolume.map((row) => ({ label: row.exercise_name ?? row.family, sets: row.sets, detail: row.family })),
-      'sets',
-      sortOrder,
-    ),
+    () => sortByValue(aggregateExerciseSetRows(summary.exerciseSetVolume), 'sets', sortOrder),
     [sortOrder, summary.exerciseSetVolume],
   )
   const maxMuscleSets = useMemo(() => Math.max(1, ...muscleSetVolume.map((row) => row.sets)), [muscleSetVolume])
@@ -353,10 +349,11 @@ function BarRow({
   unit: Unit
   tone?: 'cool' | 'warm'
 }) {
+  const [expanded, setExpanded] = useState(false)
   const width = Math.max(3, Math.round((value / maxValue) * 100))
 
   return (
-    <div className="bar-row">
+    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
       <span>{label}</span>
       <div className="bar-track">
         <div
@@ -367,7 +364,10 @@ function BarRow({
       <strong>
         {formatNumber(value)} {unit}
       </strong>
-    </div>
+      {expanded ? (
+        <small className="row-detail">Raw load volume for this exact entry. Tap again to collapse.</small>
+      ) : null}
+    </button>
   )
 }
 
@@ -379,15 +379,16 @@ function SetBarRow({
   tone = 'cool',
 }: {
   label: string
-  detail?: string
+  detail?: string | undefined
   sets: number
   maxSets: number
   tone?: 'cool' | 'warm'
 }) {
+  const [expanded, setExpanded] = useState(false)
   const width = Math.max(3, Math.round((sets / maxSets) * 100))
 
   return (
-    <div className="bar-row">
+    <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
       <span><strong>{label}</strong>{detail ? <small>{detail}</small> : null}</span>
       <div className="bar-track">
         <div
@@ -396,7 +397,10 @@ function SetBarRow({
         />
       </div>
       <strong>{sets} sets</strong>
-    </div>
+      {expanded ? (
+        <small className="row-detail">{detail ? `Grouped under ${detail}. ` : ''}{sets} hard sets counted here.</small>
+      ) : null}
+    </button>
   )
 }
 
@@ -413,8 +417,10 @@ function DailyVolumeRow({
 }) {
   const width = Math.max(3, Math.round((value / maxValue) * 100))
 
+  const [expanded, setExpanded] = useState(false)
+
   return (
-    <div className="daily-volume-row">
+    <button className="daily-volume-row expandable-row" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
       <span title={date}>{formatShortDate(date)}</span>
       <div className="bar-track">
         <div className="bar bar-warm" style={{ width: `${width}%` }} />
@@ -422,7 +428,8 @@ function DailyVolumeRow({
       <strong>
         {formatNumber(value)} {unit}
       </strong>
-    </div>
+      {expanded ? <small className="row-detail">Full date: {date}</small> : null}
+    </button>
   )
 }
 
@@ -485,19 +492,40 @@ function RecentSets({ sets }: { sets: RecentSet[] }) {
 
       <div className="recent-card-list">
         {activeSets.map((set, index) => (
-          <article className="recent-card" key={`${set.performed_at}-${set.exercise_name}-${index}`}>
-            <div>
-              <strong>{set.exercise_name}</strong>
-              <span>Set {set.set_number}</span>
-            </div>
-            <div className="recent-work">
-              <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
-              {set.rpe === null ? null : <span>RPE {set.rpe}</span>}
-            </div>
-          </article>
+          <RecentSetCard
+            key={`${set.performed_at}-${set.exercise_name}-${index}`}
+            set={set}
+          />
         ))}
       </div>
     </div>
+  )
+}
+
+function RecentSetCard({ set }: { set: RecentSet }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <button className="recent-card" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+      <div>
+        <strong>{set.exercise_name}</strong>
+        <span>Set {set.set_number}</span>
+      </div>
+      <div className="recent-work">
+        <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
+        {set.rpe === null ? null : <span>RPE {set.rpe}</span>}
+      </div>
+      {expanded ? (
+        <dl className="recent-detail">
+          <div><dt>Date</dt><dd>{set.performed_at}</dd></div>
+          <div><dt>Exercise</dt><dd>{set.exercise_name}</dd></div>
+          <div><dt>Set</dt><dd>{set.set_number}</dd></div>
+          <div><dt>Reps</dt><dd>{set.reps}</dd></div>
+          <div><dt>Weight</dt><dd>{formatNumber(set.weight)} {set.unit}</dd></div>
+          <div><dt>RPE</dt><dd>{set.rpe ?? '—'}</dd></div>
+        </dl>
+      ) : null}
+    </button>
   )
 }
 
@@ -545,6 +573,23 @@ function aggregateVolume<T extends 'exercise_name' | 'performed_at'>(
 
   return [...totals.entries()]
     .map(([label, volume]) => ({ label, volume }))
+}
+
+function aggregateExerciseSetRows(rows: SetVolume[]): Array<{ label: string; detail?: string | undefined; sets: number }> {
+  const totals = new Map<string, { label: string; detail?: string | undefined; sets: number }>()
+
+  for (const row of rows) {
+    const label = row.exercise_name ?? row.family
+    const current = totals.get(label)
+    const detail = row.family === label ? undefined : row.family
+    totals.set(label, {
+      label,
+      detail: current?.detail ?? detail,
+      sets: Math.max(current?.sets ?? 0, row.sets),
+    })
+  }
+
+  return [...totals.values()]
 }
 
 function aggregateSets<T extends 'body_area'>(

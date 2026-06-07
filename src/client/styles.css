@@ -237,6 +237,23 @@ h2 {
   font-size: 14px;
 }
 
+.expandable-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.row-detail {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .bar-row > span,
 .bar-row > strong {
   min-width: 0;
@@ -276,9 +293,16 @@ h2 {
   grid-template-columns: minmax(72px, max-content) minmax(80px, 1fr) minmax(82px, max-content);
   gap: 10px;
   align-items: center;
+  width: 100%;
   min-width: 0;
   min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   font-size: 14px;
+  text-align: left;
 }
 
 .daily-volume-row > span {
@@ -333,11 +357,16 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #f7fafb;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   padding: 12px;
+  text-align: left;
 }
 
 .recent-card strong,
@@ -353,6 +382,33 @@ h2 {
 
 .recent-work {
   justify-self: start;
+}
+
+.recent-detail {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.recent-detail div {
+  min-width: 0;
+}
+
+.recent-detail dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.recent-detail dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
 }
 
 .table-wrap {
