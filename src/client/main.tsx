@@ -69,7 +69,7 @@ function App() {
           throw new Error(`Dashboard API returned ${response.status}.`)
         }
 
-        const summary = (await response.json()) as DashboardSummary
+        const summary = normalizeDashboardSummary(await response.json())
         if (isActive) setState({ status: 'ready', summary })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -210,6 +210,20 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
       </section>
     </Shell>
   )
+}
+
+function normalizeDashboardSummary(value: unknown): DashboardSummary {
+  const input = value as Partial<DashboardSummary>
+  return {
+    sessions: Number(input.sessions ?? 0),
+    sets: Number(input.sets ?? 0),
+    volume: input.volume ?? { lb: 0, kg: 0 },
+    exerciseVolume: Array.isArray(input.exerciseVolume) ? input.exerciseVolume : [],
+    familySetVolume: Array.isArray(input.familySetVolume) ? input.familySetVolume : [],
+    exerciseSetVolume: Array.isArray(input.exerciseSetVolume) ? input.exerciseSetVolume : [],
+    dailyVolume: Array.isArray(input.dailyVolume) ? input.dailyVolume : [],
+    recentSets: Array.isArray(input.recentSets) ? input.recentSets : [],
+  }
 }
 
 function Shell({ children }: { children: ReactNode }) {

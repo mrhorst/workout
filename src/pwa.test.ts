@@ -33,14 +33,15 @@ test('built app exposes installable PWA metadata', () => {
   assert.ok(manifest.icons?.some((icon) => icon.sizes === '512x512' && icon.purpose?.includes('any')))
 })
 
-test('built app registers a service worker for app shell caching', () => {
+test('built app registers a service worker for app shell caching without caching live API data', () => {
   const indexHtml = readFileSync(join(publicDir, 'index.html'), 'utf8')
   const assets = readFileSync(join(publicDir, 'sw.js'), 'utf8')
 
   assert.match(indexHtml, /navigator\.serviceWorker\.register\('\/sw\.js'\)/)
   assert.match(assets, /const CACHE_NAME = 'workout-app-shell-/)
   assert.match(assets, /manifest\.webmanifest/)
-  assert.match(assets, /\/api\/summary/)
+  assert.match(assets, /url\.pathname\.startsWith\('\/api\/'\)/)
+  assert.doesNotMatch(assets, /cache\.put\(request, copy\)/)
 })
 
 test('built app includes required PWA icons', () => {
