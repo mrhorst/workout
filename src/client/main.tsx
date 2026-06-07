@@ -94,8 +94,19 @@ function App() {
   return <Dashboard summary={state.summary} />
 }
 
+type DashboardSection = 'family' | 'exercises' | 'tonnage' | 'daily' | 'recent'
+
+const dashboardSections: Array<{ id: DashboardSection; label: string }> = [
+  { id: 'family', label: 'Muscles' },
+  { id: 'exercises', label: 'Exercises' },
+  { id: 'tonnage', label: 'Tonnage' },
+  { id: 'daily', label: 'Daily' },
+  { id: 'recent', label: 'Recent' },
+]
+
 function Dashboard({ summary }: { summary: DashboardSummary }) {
   const [displayUnit, setDisplayUnit] = useState<Unit>('lb')
+  const [activeSection, setActiveSection] = useState<DashboardSection>('family')
   const exerciseVolume = useMemo(
     () => aggregateVolume(summary.exerciseVolume, 'exercise_name', displayUnit),
     [displayUnit, summary.exerciseVolume],
@@ -135,80 +146,104 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
       </section>
 
+      <nav className="section-tabs" aria-label="Dashboard charts">
+        {dashboardSections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            className={activeSection === section.id ? 'active' : ''}
+            aria-current={activeSection === section.id ? 'page' : undefined}
+            onClick={() => setActiveSection(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+
       <section className="dashboard-grid">
-        <Panel title="Hard Sets by Muscle / Family" note="Primary volume view. Variants combine here because sets near effort transfer better than fake work math.">
-          {familySetVolume.length === 0 ? (
-            <EmptyState />
-          ) : (
-            familySetVolume.map((row) => (
-              <SetBarRow
-                key={`${row.label}-${row.detail}`}
-                label={row.label}
-                detail={row.detail}
-                sets={row.sets}
-                maxSets={maxFamilySets}
-              />
-            ))
-          )}
-        </Panel>
+        {activeSection === 'family' ? (
+          <Panel title="Hard Sets by Muscle / Family" note="Primary volume view. Variants combine here because sets near effort transfer better than fake work math.">
+            {familySetVolume.length === 0 ? (
+              <EmptyState />
+            ) : (
+              familySetVolume.map((row) => (
+                <SetBarRow
+                  key={`${row.label}-${row.detail}`}
+                  label={row.label}
+                  detail={row.detail}
+                  sets={row.sets}
+                  maxSets={maxFamilySets}
+                />
+              ))
+            )}
+          </Panel>
+        ) : null}
 
-        <Panel title="Hard Sets by Exact Exercise" note="Use this to see variant exposure without mixing strength progression.">
-          {exerciseSetVolume.length === 0 ? (
-            <EmptyState />
-          ) : (
-            exerciseSetVolume.map((row) => (
-              <SetBarRow
-                key={row.label}
-                label={row.label}
-                detail={row.detail}
-                sets={row.sets}
-                maxSets={maxExerciseSets}
-                tone="warm"
-              />
-            ))
-          )}
-        </Panel>
+        {activeSection === 'exercises' ? (
+          <Panel title="Hard Sets by Exact Exercise" note="Use this to see variant exposure without mixing strength progression.">
+            {exerciseSetVolume.length === 0 ? (
+              <EmptyState />
+            ) : (
+              exerciseSetVolume.map((row) => (
+                <SetBarRow
+                  key={row.label}
+                  label={row.label}
+                  detail={row.detail}
+                  sets={row.sets}
+                  maxSets={maxExerciseSets}
+                  tone="warm"
+                />
+              ))
+            )}
+          </Panel>
+        ) : null}
 
-        <Panel title="Raw Load Volume by Exact Exercise" note="Tonnage is exact-exercise only; do not compare across machines.">
-          {exerciseVolume.length === 0 ? (
-            <EmptyState />
-          ) : (
-            exerciseVolume.map((row) => (
-              <BarRow
-                key={row.label}
-                label={row.label}
-                value={row.volume}
-                maxValue={maxExerciseVolume}
-                unit={displayUnit}
-              />
-            ))
-          )}
-        </Panel>
+        {activeSection === 'tonnage' ? (
+          <Panel title="Raw Load Volume by Exact Exercise" note="Tonnage is exact-exercise only; do not compare across machines.">
+            {exerciseVolume.length === 0 ? (
+              <EmptyState />
+            ) : (
+              exerciseVolume.map((row) => (
+                <BarRow
+                  key={row.label}
+                  label={row.label}
+                  value={row.volume}
+                  maxValue={maxExerciseVolume}
+                  unit={displayUnit}
+                />
+              ))
+            )}
+          </Panel>
+        ) : null}
 
-        <Panel title="Daily Volume">
-          {dailyVolume.length === 0 ? (
-            <EmptyState />
-          ) : (
-            dailyVolume.map((row) => (
-              <BarRow
-                key={row.label}
-                label={row.label}
-                value={row.volume}
-                maxValue={maxDailyVolume}
-                tone="warm"
-                unit={displayUnit}
-              />
-            ))
-          )}
-        </Panel>
+        {activeSection === 'daily' ? (
+          <Panel title="Daily Volume">
+            {dailyVolume.length === 0 ? (
+              <EmptyState />
+            ) : (
+              dailyVolume.map((row) => (
+                <BarRow
+                  key={row.label}
+                  label={row.label}
+                  value={row.volume}
+                  maxValue={maxDailyVolume}
+                  tone="warm"
+                  unit={displayUnit}
+                />
+              ))
+            )}
+          </Panel>
+        ) : null}
 
-        <Panel title="Recent Sets" wide>
-          {summary.recentSets.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <RecentSets sets={summary.recentSets} />
-          )}
-        </Panel>
+        {activeSection === 'recent' ? (
+          <Panel title="Recent Sets" wide>
+            {summary.recentSets.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <RecentSets sets={summary.recentSets} />
+            )}
+          </Panel>
+        ) : null}
       </section>
     </Shell>
   )
