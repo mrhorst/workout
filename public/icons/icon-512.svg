@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Workout app icon">
+  <rect width="512" height="512" rx="112" fill="#0f8b8d"/>
+  <circle cx="390" cy="122" r="48" fill="#f5f7f8" opacity="0.22"/>
+  <path d="M138 300h236" stroke="#ffffff" stroke-width="48" stroke-linecap="round"/>
+  <path d="M114 236v128M398 236v128" stroke="#ffffff" stroke-width="42" stroke-linecap="round"/>
+  <path d="M74 270v60M438 270v60" stroke="#ffffff" stroke-width="32" stroke-linecap="round" opacity="0.9"/>
+  <path d="M154 154h150" stroke="#ffffff" stroke-width="32" stroke-linecap="round" opacity="0.92"/>
+  <path d="M154 210h224" stroke="#ffffff" stroke-width="32" stroke-linecap="round" opacity="0.72"/>
+</svg>
