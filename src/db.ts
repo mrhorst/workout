@@ -364,12 +364,11 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
       SELECT
         COALESCE(e.family, e.name) AS family,
         e.movement_pattern,
-        json_each.value AS body_area,
+        json_extract(e.body_areas, '$[0]') AS body_area,
         COUNT(*) AS sets
       FROM workout_sets ws
       JOIN exercise_definitions e ON e.id = ws.exercise_id
-      JOIN json_each(e.body_areas)
-      GROUP BY COALESCE(e.family, e.name), e.movement_pattern, json_each.value
+      GROUP BY COALESCE(e.family, e.name), e.movement_pattern, json_extract(e.body_areas, '$[0]')
       ORDER BY sets DESC, family
     `)
     .all()
@@ -381,12 +380,11 @@ export function getDashboardSummary(db: TrainingLogDatabase): DashboardSummary {
         e.name AS exercise_name,
         COALESCE(e.family, e.name) AS family,
         e.movement_pattern,
-        json_each.value AS body_area,
+        json_extract(e.body_areas, '$[0]') AS body_area,
         COUNT(*) AS sets
       FROM workout_sets ws
       JOIN exercise_definitions e ON e.id = ws.exercise_id
-      JOIN json_each(e.body_areas)
-      GROUP BY e.name, COALESCE(e.family, e.name), e.movement_pattern, json_each.value
+      GROUP BY e.name, COALESCE(e.family, e.name), e.movement_pattern, json_extract(e.body_areas, '$[0]')
       ORDER BY e.name
     `)
     .all()

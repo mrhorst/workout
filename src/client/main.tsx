@@ -33,6 +33,9 @@ type DailyVolume = {
 type RecentSet = {
   performed_at: string
   exercise_name: string
+  body_areas: string
+  family: string
+  movement_pattern: string | null
   set_number: number
   reps: number
   weight: number
@@ -183,7 +186,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
       ) : (
       <section className="dashboard-grid">
         {activeSection === 'family' ? (
-          <Panel title="Hard Sets by Muscle" note="Primary volume view. Exercises and variants roll up into the muscles they trained.">
+          <Panel title="Hard Sets by Primary Muscle" note="Only the exercise's primary muscle counts here, so bench/chest press won't inflate arms or shoulders.">
             {muscleSetVolume.length === 0 ? (
               <EmptyState />
             ) : (
@@ -263,7 +266,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
             {summary.recentSets.length === 0 ? (
               <EmptyState />
             ) : (
-              <RecentSets sets={summary.recentSets} onSelectDay={(label) => setDetailView({ type: 'day', label })} />
+              <RecentSets sets={summary.recentSets} onSelectExercise={(label) => setDetailView({ type: 'exercise', label })} />
             )}
           </Panel>
         ) : null}
@@ -361,7 +364,7 @@ function DetailPage({
     return (
       <section className="detail-page">
         <button className="back-button" type="button" onClick={onBack}>← Back</button>
-        <Panel title={`${detailView.label} details`} note={`${totalSets} hard sets contributing to ${detailView.label}.`}>
+        <Panel title={`${detailView.label} details`} note={`${totalSets} direct hard sets where ${detailView.label} is the primary muscle.`}>
           {exerciseRows.length === 0 ? <EmptyState /> : exerciseRows.map((row) => (
             <SetBarRow
               key={row.label}
@@ -385,11 +388,12 @@ function DetailPage({
       displayUnit,
     )
     const totalVolume = volumeRows[0]?.volume ?? 0
+    const muscleLabels = formatMuscleList(setRows[0]?.body_areas)
 
     return (
       <section className="detail-page">
         <button className="back-button" type="button" onClick={onBack}>← Back</button>
-        <Panel title={`${detailView.label} details`} note={`${setRows.length} recent sets · ${formatNumber(totalVolume)} ${displayUnit} raw load volume.`}>
+        <Panel title={`${detailView.label} details`} note={`${setRows.length} recent sets · ${formatNumber(totalVolume)} ${displayUnit} raw load volume · muscles: ${muscleLabels}.`}>
           {setRows.length === 0 ? <EmptyState /> : (
             <div className="recent-card-list">
               {setRows.map((set, index) => <RecentSetCard key={`${set.performed_at}-${index}`} set={set} />)}
@@ -570,7 +574,7 @@ function SortToolbar({
   )
 }
 
-function RecentSets({ sets, onSelectDay }: { sets: RecentSet[]; onSelectDay?: (day: string) => void }) {
+function RecentSets({ sets, onSelectExercise }: { sets: RecentSet[]; onSelectExercise?: (exercise: string) => void }) {
   const setsByDay = useMemo(() => groupRecentSetsByDay(sets), [sets])
   const [selectedDay, setSelectedDay] = useState(() => setsByDay[0]?.day ?? '')
   const activeDay = setsByDay.some((group) => group.day === selectedDay)
@@ -587,7 +591,7 @@ function RecentSets({ sets, onSelectDay }: { sets: RecentSet[]; onSelectDay?: (d
             type="button"
             className={group.day === activeDay ? 'active' : ''}
             aria-pressed={group.day === activeDay}
-            onClick={() => onSelectDay ? onSelectDay(group.day) : setSelectedDay(group.day)}
+            onClick={() => setSelectedDay(group.day)}
           >
             <strong>{formatShortDate(group.day)}</strong>
             <span>{group.sets.length} sets</span>
@@ -600,6 +604,7 @@ function RecentSets({ sets, onSelectDay }: { sets: RecentSet[]; onSelectDay?: (d
           <RecentSetCard
             key={`${set.performed_at}-${set.exercise_name}-${index}`}
             set={set}
+            onSelectExercise={onSelectExercise}
           />
         ))}
       </div>
@@ -607,30 +612,31 @@ function RecentSets({ sets, onSelectDay }: { sets: RecentSet[]; onSelectDay?: (d
   )
 }
 
-function RecentSetCard({ set }: { set: RecentSet }) {
+function RecentSetCard({ set, onSelectExercise }: { set: RecentSet; onSelectExercise?: (exercise: string) => void }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <button className="recent-card" type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+    <article className="recent-card" aria-expanded={expanded}>
       <div>
-        <strong>{set.exercise_name}</strong>
+        <button className="text-link" type="button" onClick={() => onSelectExercise?.(set.exercise_name)}>{set.exercise_name}</button>
         <span>Set {set.set_number}</span>
       </div>
-      <div className="recent-work">
+      <button className="recent-work" type="button" onClick={() => setExpanded(!expanded)}>
         <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
         {set.rpe === null ? null : <span>RPE {set.rpe}</span>}
-      </div>
+      </button>
       {expanded ? (
         <dl className="recent-detail">
           <div><dt>Date</dt><dd>{set.performed_at}</dd></div>
           <div><dt>Exercise</dt><dd>{set.exercise_name}</dd></div>
+          <div><dt>Muscles</dt><dd>{formatMuscleList(set.body_areas)}</dd></div>
           <div><dt>Set</dt><dd>{set.set_number}</dd></div>
           <div><dt>Reps</dt><dd>{set.reps}</dd></div>
           <div><dt>Weight</dt><dd>{formatNumber(set.weight)} {set.unit}</dd></div>
           <div><dt>RPE</dt><dd>{set.rpe ?? '—'}</dd></div>
         </dl>
       ) : null}
-    </button>
+    </article>
   )
 }
 
@@ -648,6 +654,16 @@ function groupRecentSetsByDay(sets: RecentSet[]): Array<{ day: string; sets: Rec
   }
 
   return [...groups.entries()].map(([day, daySets]) => ({ day, sets: daySets }))
+}
+
+function formatMuscleList(value: string | undefined): string {
+  if (!value) return 'unknown'
+  try {
+    const muscles = JSON.parse(value) as string[]
+    return muscles.length ? muscles.join(', ') : 'unknown'
+  } catch {
+    return value
+  }
 }
 
 function formatShortDate(value: string): string {

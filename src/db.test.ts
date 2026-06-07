@@ -152,3 +152,48 @@ test("dashboard groups variants by family for hard-set volume while keeping exac
   assert.equal(summary.exerciseVolume[1]?.exercise_name, "Seated Leg Curl");
   assert.equal(summary.exerciseVolume[1]?.volume, 4200);
 });
+
+test("muscle hard-set charts count only the primary body area", () => {
+  const dbPath = join(mkdtempSync(join(tmpdir(), "training-log-")), "test.sqlite");
+  const db = openDatabase(dbPath);
+  initializeDatabase(db);
+
+  addExerciseDefinition(db, {
+    name: "Bench Press",
+    bodyAreas: ["chest", "shoulders", "arms"],
+  });
+  addExerciseDefinition(db, {
+    name: "Cable Curl",
+    bodyAreas: ["arms"],
+  });
+
+  startWorkoutSession(db, {
+    id: "session-primary-muscles",
+    performedAt: "2026-06-08",
+  });
+
+  for (const setNumber of [1, 2, 3]) {
+    addWorkoutSet(db, {
+      sessionId: "session-primary-muscles",
+      exerciseName: "Bench Press",
+      workoutSet: { setNumber, reps: 8, weight: 135, unit: "lb", sourceEntryId: `bench-${setNumber}` },
+    });
+  }
+
+  addWorkoutSet(db, {
+    sessionId: "session-primary-muscles",
+    exerciseName: "Cable Curl",
+    workoutSet: { setNumber: 1, reps: 12, weight: 40, unit: "lb", sourceEntryId: "curl-1" },
+  });
+
+  const summary = getDashboardSummary(db);
+
+  assert.deepEqual(summary.familySetVolume, [
+    { family: "Bench Press", movement_pattern: null, body_area: "chest", sets: 3 },
+    { family: "Cable Curl", movement_pattern: null, body_area: "arms", sets: 1 },
+  ]);
+  assert.deepEqual(summary.exerciseSetVolume, [
+    { exercise_name: "Bench Press", family: "Bench Press", movement_pattern: null, body_area: "chest", sets: 3 },
+    { exercise_name: "Cable Curl", family: "Cable Curl", movement_pattern: null, body_area: "arms", sets: 1 },
+  ]);
+});
