@@ -64,7 +64,9 @@ function App() {
 
     async function loadSummary() {
       try {
-        const response = await fetch('/api/summary')
+        const response = await fetch(`/api/summary?ts=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (!response.ok) {
           throw new Error(`Dashboard API returned ${response.status}.`)
         }
