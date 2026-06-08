@@ -266,7 +266,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
             {summary.recentSets.length === 0 ? (
               <EmptyState />
             ) : (
-              <RecentSets sets={summary.recentSets} onSelectExercise={(label) => setDetailView({ type: 'exercise', label })} />
+              <RecentSets sets={summary.recentSets} />
             )}
           </Panel>
         ) : null}
@@ -397,7 +397,7 @@ function DetailPage({
         <Panel title={`${detailView.label} details`} note={`${setRows.length} recent sets · ${formatNumber(totalVolume)} ${displayUnit} raw load volume · muscles: ${muscleLabels}.`}>
           {setRows.length === 0 ? <EmptyState /> : (
             <div className="recent-card-list">
-              {setRows.map((set, index) => <RecentSetCard key={`${set.performed_at}-${index}`} set={set} />)}
+              {setRows.map((set, index) => <RecentSetCard key={`${set.performed_at}-${index}`} set={set} flatWork />)}
             </div>
           )}
         </Panel>
@@ -613,12 +613,19 @@ function RecentSets({ sets, onSelectExercise }: { sets: RecentSet[]; onSelectExe
   )
 }
 
-function RecentSetCard({ set, onSelectExercise }: { set: RecentSet; onSelectExercise?: (exercise: string) => void }) {
+function RecentSetCard({
+  set,
+  onSelectExercise,
+  flatWork = false,
+}: {
+  set: RecentSet
+  onSelectExercise?: (exercise: string) => void
+  flatWork?: boolean
+}) {
   const [expanded, setExpanded] = useState(false)
-  const isDetailContext = !onSelectExercise
 
   return (
-    <article className={isDetailContext ? 'recent-card recent-card-detail' : 'recent-card'} aria-expanded={expanded}>
+    <article className={flatWork ? 'recent-card recent-card-detail' : 'recent-card'} aria-expanded={expanded}>
       <div>
         {onSelectExercise ? (
           <button className="text-link" type="button" onClick={() => onSelectExercise(set.exercise_name)}>{formatDisplayLabel(set.exercise_name)}</button>
@@ -627,7 +634,7 @@ function RecentSetCard({ set, onSelectExercise }: { set: RecentSet; onSelectExer
         )}
         <span>{formatShortDate(set.performed_at)} · {formatRelativeDate(set.performed_at)} · Set {set.set_number} · {formatMuscleList(set.body_areas)}</span>
       </div>
-      <button className={isDetailContext ? 'recent-work recent-work-flat' : 'recent-work'} type="button" onClick={() => setExpanded(!expanded)} aria-label={`Show details for ${set.exercise_name}`}>
+      <button className={flatWork ? 'recent-work recent-work-flat' : 'recent-work'} type="button" onClick={() => setExpanded(!expanded)} aria-label={`Show details for ${set.exercise_name}`}>
         <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
         <span>{set.rpe === null ? 'Details' : `RPE ${set.rpe}`}</span>
       </button>
