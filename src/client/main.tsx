@@ -150,7 +150,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         <Metric label="Sessions" value={summary.sessions} />
         <Metric label="Hard Sets" value={summary.sets} />
         <Metric
-          label={`Raw Load Volume ${displayUnit}`}
+          label={`Load Volume (${displayUnit})`}
           value={formatNumber(summary.volume[displayUnit])}
         />
         <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
@@ -173,7 +173,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ))}
       </nav>
 
-      <SortToolbar sortOrder={sortOrder} onChange={setSortOrder} />
+      {detailView || activeSection === 'recent' ? null : <SortToolbar sortOrder={sortOrder} onChange={setSortOrder} />}
 
       {detailView ? (
         <DetailPage
@@ -295,10 +295,11 @@ function Shell({ children }: { children: ReactNode }) {
     <main>
       <header className="app-header">
         <div>
+          <p className="eyebrow">Training Log</p>
           <h1>Workout</h1>
-          <p>Local training log for Hermes-entered sessions.</p>
+          <p>Progress, volume, and recent sets — without fake precision.</p>
         </div>
-        <span>{new Date().toLocaleDateString()}</span>
+        <time dateTime={new Date().toISOString()}>{new Date().toLocaleDateString()}</time>
       </header>
       {children}
     </main>
@@ -459,14 +460,14 @@ function BarRow({
 
   return (
     <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => onSelect ? onSelect() : setExpanded(!expanded)}>
-      <span>{label}</span>
+      <span><strong>{label}</strong></span>
       <div className="bar-track">
         <div
           className={tone === 'warm' ? 'bar bar-warm' : 'bar'}
           style={{ width: `${width}%` }}
         />
       </div>
-      <strong>
+      <strong className="row-value">
         {formatNumber(value)} {unit}
       </strong>
       {expanded ? (
@@ -496,14 +497,14 @@ function SetBarRow({
 
   return (
     <button className="bar-row expandable-row" type="button" aria-expanded={expanded} onClick={() => onSelect ? onSelect() : setExpanded(!expanded)}>
-      <span><strong>{label}</strong>{detail ? <small>{detail}</small> : null}</span>
+      <span><strong>{formatDisplayLabel(label)}</strong>{detail ? <small>{formatDisplayLabel(detail)}</small> : null}</span>
       <div className="bar-track">
         <div
           className={tone === 'warm' ? 'bar bar-warm' : 'bar'}
           style={{ width: `${width}%` }}
         />
       </div>
-      <strong>{sets} sets</strong>
+      <strong className="row-value">{sets} sets</strong>
       {expanded ? (
         <small className="row-detail">{detail ? `Grouped under ${detail}. ` : ''}{sets} hard sets counted here.</small>
       ) : null}
@@ -534,7 +535,7 @@ function DailyVolumeRow({
       <div className="bar-track">
         <div className="bar bar-warm" style={{ width: `${width}%` }} />
       </div>
-      <strong>
+      <strong className="row-value">
         {formatNumber(value)} {unit}
       </strong>
       {expanded ? <small className="row-detail">Full date: {date}</small> : null}
@@ -618,12 +619,16 @@ function RecentSetCard({ set, onSelectExercise }: { set: RecentSet; onSelectExer
   return (
     <article className="recent-card" aria-expanded={expanded}>
       <div>
-        <button className="text-link" type="button" onClick={() => onSelectExercise?.(set.exercise_name)}>{set.exercise_name}</button>
-        <span>Set {set.set_number}</span>
+        {onSelectExercise ? (
+          <button className="text-link" type="button" onClick={() => onSelectExercise(set.exercise_name)}>{formatDisplayLabel(set.exercise_name)}</button>
+        ) : (
+          <strong>{formatDisplayLabel(set.exercise_name)}</strong>
+        )}
+        <span>{formatShortDate(set.performed_at)} · Set {set.set_number} · {formatMuscleList(set.body_areas)}</span>
       </div>
-      <button className="recent-work" type="button" onClick={() => setExpanded(!expanded)}>
+      <button className="recent-work" type="button" onClick={() => setExpanded(!expanded)} aria-label={`Show details for ${set.exercise_name}`}>
         <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
-        {set.rpe === null ? null : <span>RPE {set.rpe}</span>}
+        <span>{set.rpe === null ? 'Details' : `RPE ${set.rpe}`}</span>
       </button>
       {expanded ? (
         <dl className="recent-detail">
@@ -654,6 +659,10 @@ function groupRecentSetsByDay(sets: RecentSet[]): Array<{ day: string; sets: Rec
   }
 
   return [...groups.entries()].map(([day, daySets]) => ({ day, sets: daySets }))
+}
+
+function formatDisplayLabel(value: string): string {
+  return value.replace(/\w/g, (letter) => letter.toUpperCase())
 }
 
 function formatMuscleList(value: string | undefined): string {
