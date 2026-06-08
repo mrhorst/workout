@@ -615,18 +615,19 @@ function RecentSets({ sets, onSelectExercise }: { sets: RecentSet[]; onSelectExe
 
 function RecentSetCard({ set, onSelectExercise }: { set: RecentSet; onSelectExercise?: (exercise: string) => void }) {
   const [expanded, setExpanded] = useState(false)
+  const isDetailContext = !onSelectExercise
 
   return (
-    <article className="recent-card" aria-expanded={expanded}>
+    <article className={isDetailContext ? 'recent-card recent-card-detail' : 'recent-card'} aria-expanded={expanded}>
       <div>
         {onSelectExercise ? (
           <button className="text-link" type="button" onClick={() => onSelectExercise(set.exercise_name)}>{formatDisplayLabel(set.exercise_name)}</button>
         ) : (
           <strong>{formatDisplayLabel(set.exercise_name)}</strong>
         )}
-        <span>{formatShortDate(set.performed_at)} · Set {set.set_number} · {formatMuscleList(set.body_areas)}</span>
+        <span>{formatShortDate(set.performed_at)} · {formatRelativeDate(set.performed_at)} · Set {set.set_number} · {formatMuscleList(set.body_areas)}</span>
       </div>
-      <button className="recent-work" type="button" onClick={() => setExpanded(!expanded)} aria-label={`Show details for ${set.exercise_name}`}>
+      <button className={isDetailContext ? 'recent-work recent-work-flat' : 'recent-work'} type="button" onClick={() => setExpanded(!expanded)} aria-label={`Show details for ${set.exercise_name}`}>
         <strong>{set.reps} × {formatNumber(set.weight)} {set.unit}</strong>
         <span>{set.rpe === null ? 'Details' : `RPE ${set.rpe}`}</span>
       </button>
@@ -678,6 +679,22 @@ function formatMuscleList(value: string | undefined): string {
 function formatShortDate(value: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   return match ? `${Number(match[2])}/${Number(match[3])}` : value
+}
+
+function formatRelativeDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return value
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  const today = new Date()
+  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diffDays = Math.round((todayLocal.getTime() - date.getTime()) / 86_400_000)
+
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays > 1) return `${diffDays} days ago`
+  if (diffDays === -1) return 'Tomorrow'
+  return `in ${Math.abs(diffDays)} days`
 }
 
 function formatNumber(value: number): string {

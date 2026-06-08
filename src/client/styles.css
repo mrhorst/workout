@@ -490,6 +490,29 @@ h2 {
   text-align: left;
 }
 
+.recent-work-flat {
+  justify-self: stretch;
+  width: 100%;
+  min-height: auto;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 0 0;
+}
+
+.recent-work-flat strong {
+  font-size: 22px;
+  letter-spacing: -0.035em;
+}
+
+.recent-work-flat span {
+  display: inline-block;
+  margin-top: 5px;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
 .text-link {
   border: 0;
   background: transparent;
@@ -568,6 +591,11 @@ td {
   .recent-work {
     justify-self: end;
     text-align: right;
+  }
+
+  .recent-work-flat {
+    justify-self: stretch;
+    text-align: left;
   }
 }
 
