@@ -105,16 +105,16 @@ type DetailView =
   | { type: 'day'; label: string }
 
 const dashboardSections: Array<{ id: DashboardSection; label: string }> = [
-  { id: 'family', label: 'Muscles' },
-  { id: 'exercises', label: 'Exercises' },
-  { id: 'tonnage', label: 'Tonnage' },
-  { id: 'daily', label: 'Daily' },
   { id: 'recent', label: 'Recent' },
+  { id: 'exercises', label: 'Progress' },
+  { id: 'family', label: 'Muscles' },
+  { id: 'daily', label: 'Daily' },
+  { id: 'tonnage', label: 'Load' },
 ]
 
 function Dashboard({ summary }: { summary: DashboardSummary }) {
   const [displayUnit, setDisplayUnit] = useState<Unit>('lb')
-  const [activeSection, setActiveSection] = useState<DashboardSection>('family')
+  const [activeSection, setActiveSection] = useState<DashboardSection>('recent')
   const [sortOrder, setSortOrder] = useState<SortOrder>('highest')
   const [detailView, setDetailView] = useState<DetailView | null>(null)
   const exerciseVolume = useMemo(
@@ -143,10 +143,12 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
   )
   const maxMuscleSets = useMemo(() => Math.max(1, ...muscleSetVolume.map((row) => row.sets)), [muscleSetVolume])
   const maxExerciseSets = useMemo(() => Math.max(1, ...exerciseSetVolume.map((row) => row.sets)), [exerciseSetVolume])
+  const lastWorkoutDate = summary.recentSets[0]?.performed_at
 
   return (
     <Shell>
       <section className="metrics" aria-label="Workout metrics">
+        <Metric label="Last Workout" value={lastWorkoutDate ? formatRelativeDate(lastWorkoutDate) : '—'} />
         <Metric label="Sessions" value={summary.sessions} />
         <Metric label="Hard Sets" value={summary.sets} />
         <Metric
@@ -186,7 +188,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
       ) : (
       <section className="dashboard-grid">
         {activeSection === 'family' ? (
-          <Panel title="Hard Sets by Primary Muscle" note="Only the exercise's primary muscle counts here, so bench/chest press won't inflate arms or shoulders.">
+          <Panel title="Primary Muscle Balance" note="Hard sets by the exercise's primary muscle only. Compound lifts stay honest: bench does not inflate arms or shoulders.">
             {muscleSetVolume.length === 0 ? (
               <EmptyState />
             ) : (
@@ -204,7 +206,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ) : null}
 
         {activeSection === 'exercises' ? (
-          <Panel title="Hard Sets by Exact Exercise" note="Use this to see variant exposure without mixing strength progression.">
+          <Panel title="Progress by Exercise" note="Exact exercise history for what to compare next time. Variants stay separate unless we deliberately group them.">
             {exerciseSetVolume.length === 0 ? (
               <EmptyState />
             ) : (
@@ -224,7 +226,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ) : null}
 
         {activeSection === 'tonnage' ? (
-          <Panel title="Raw Load Volume by Exact Exercise" note="Tonnage is exact-exercise only; do not compare across machines.">
+          <Panel title="Load Volume by Exercise" note="Secondary metric: reps × weight. Useful inside the same exact exercise, not across different machines.">
             {exerciseVolume.length === 0 ? (
               <EmptyState />
             ) : (
@@ -243,7 +245,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ) : null}
 
         {activeSection === 'daily' ? (
-          <Panel title="Daily Volume">
+          <Panel title="Session Size by Day" note="Use this for a quick feel of bigger vs smaller training days.">
             {dailyVolume.length === 0 ? (
               <EmptyState />
             ) : (
@@ -262,7 +264,7 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
         ) : null}
 
         {activeSection === 'recent' ? (
-          <Panel title="Recent Sets" wide>
+          <Panel title="Recent Workout Log" note="Timeline first. Tap a set to expand details without leaving the day." wide>
             {summary.recentSets.length === 0 ? (
               <EmptyState />
             ) : (
@@ -297,7 +299,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div>
           <p className="eyebrow">Training Log</p>
           <h1>Workout</h1>
-          <p>Progress, volume, and recent sets — without fake precision.</p>
+          <p>Recent workouts, exercise progress, and honest hard-set volume.</p>
         </div>
         <time dateTime={new Date().toISOString()}>{new Date().toLocaleDateString()}</time>
       </header>
