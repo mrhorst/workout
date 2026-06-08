@@ -133,7 +133,13 @@ h2 {
 }
 
 .metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 12px;
+}
+
+.metric-last,
+.metric-load {
+  grid-column: 1 / -1;
 }
 
 .section-tabs {
@@ -231,9 +237,18 @@ h2 {
 
 .metric {
   display: flex;
-  min-height: 88px;
+  min-height: 86px;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.metric-compact {
+  min-height: 78px;
+  padding: 14px;
+}
+
+.metric-load {
+  min-height: 94px;
 }
 
 .metric span {
@@ -249,26 +264,48 @@ h2 {
   letter-spacing: -0.04em;
 }
 
-.unit-toggle {
+.metric-compact strong {
+  font-size: clamp(32px, 11vw, 42px);
+}
+
+.metric-load strong {
+  font-size: clamp(38px, 12vw, 52px);
+}
+
+.unit-switcher {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 10px;
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.unit-toggle {
+  display: inline-flex;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 3px;
 }
 
 .unit-toggle button {
-  flex: 1;
-  min-height: 44px;
-  border: 1px solid var(--line);
+  min-height: 28px;
+  min-width: 38px;
+  border: 0;
   border-radius: 999px;
-  background: #f7fafb;
-  color: var(--ink);
+  background: transparent;
+  color: var(--muted);
   font: inherit;
-  font-weight: 850;
-  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 9px;
 }
 
 .unit-toggle button.active {
-  border-color: var(--accent);
   background: var(--accent);
   color: white;
 }
@@ -615,9 +652,14 @@ td {
   }
 
   .metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: 1.15fr 0.75fr 0.75fr 1.35fr;
     gap: 12px;
     margin-bottom: 16px;
+  }
+
+  .metric-last,
+  .metric-load {
+    grid-column: auto;
   }
 
   .section-tabs {

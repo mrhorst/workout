@@ -147,15 +147,17 @@ function Dashboard({ summary }: { summary: DashboardSummary }) {
 
   return (
     <Shell>
+      <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
+
       <section className="metrics" aria-label="Workout metrics">
-        <Metric label="Last Workout" value={lastWorkoutDate ? formatRelativeDate(lastWorkoutDate) : '—'} />
-        <Metric label="Sessions" value={summary.sessions} />
-        <Metric label="Hard Sets" value={summary.sets} />
+        <Metric className="metric-last" label="Last Workout" value={lastWorkoutDate ? formatRelativeDate(lastWorkoutDate) : '—'} />
+        <Metric className="metric-compact" label="Sessions" value={summary.sessions} />
+        <Metric className="metric-compact" label="Hard Sets" value={summary.sets} />
         <Metric
+          className="metric-load"
           label={`Load Volume (${displayUnit})`}
           value={formatNumber(summary.volume[displayUnit])}
         />
-        <UnitSwitcher unit={displayUnit} onChange={setDisplayUnit} />
       </section>
 
       <nav className="section-tabs" aria-label="Dashboard charts">
@@ -308,9 +310,9 @@ function Shell({ children }: { children: ReactNode }) {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({ label, value, className }: { label: string; value: string | number; className?: string }) {
   return (
-    <article className="metric">
+    <article className={className ? `metric ${className}` : 'metric'}>
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
@@ -325,8 +327,8 @@ function UnitSwitcher({
   onChange: (unit: Unit) => void
 }) {
   return (
-    <article className="metric unit-switcher" aria-label="Volume unit">
-      <span>Display</span>
+    <div className="unit-switcher" aria-label="Volume unit">
+      <span>Units</span>
       <div className="unit-toggle" role="group" aria-label="Volume unit">
         {(['lb', 'kg'] as const).map((candidate) => (
           <button
@@ -340,7 +342,7 @@ function UnitSwitcher({
           </button>
         ))}
       </div>
-    </article>
+    </div>
   )
 }
 
